@@ -1,0 +1,159 @@
+package com.andrelucs.realtimepolls.unittests;
+
+import com.andrelucs.realtimepolls.polloptions.OptionController;
+import com.andrelucs.realtimepolls.polloptions.OptionService;
+import com.andrelucs.realtimepolls.polls.PollService;
+import com.andrelucs.realtimepolls.data.dto.PollDTO;
+import com.andrelucs.realtimepolls.data.dto.PollOptionDTO;
+import com.andrelucs.realtimepolls.data.model.PollStatus;
+import com.andrelucs.realtimepolls.exceptions.service.InvalidPollUpdateException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.io.UnsupportedEncodingException;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.reset;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@Slf4j
+@WebMvcTest(OptionController.class)
+public class OptionControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    PollService pollService;
+    @MockitoBean
+    OptionService optionService;
+
+    @BeforeEach
+    void setUp() {
+        reset(pollService, optionService);
+    }
+
+    @Test
+    void shouldBeAbleToAddOptionsToANotStartedPoll() throws Exception {
+        // escolhe um poll NOT_STARTED
+        Long pollId = 1L;
+
+        when(pollService.pollExists(eq(pollId))).thenReturn(true);
+        when(optionService.addPollOption(eq(pollId), any())).thenReturn(List.of(
+                new PollOptionDTO(1L, pollId, "Java", 0),
+                new PollOptionDTO(2L, pollId, "Go", 0),
+                new PollOptionDTO(3L, pollId, "Elixir", 0)
+        ));
+
+        var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(pollId))
+                        .param("description", "C#"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        logResult(result);
+    }
+
+    @Test
+    void shouldFailToAddOptionsToPollsIfPollDoesNotExist() throws Exception {
+        Long pollId = 99L;
+        when(pollService.pollExists(eq(pollId))).thenReturn(false);
+
+        var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(pollId))
+                        .param("description", "C#"))
+                .andExpect(status().isNotFound())
+                .andReturn();
+
+        logResult(result);
+    }
+
+    @Test
+    void shouldFailToAddOptionsToPollsIfTheOperationIsInvalid() throws Exception {
+
+        when(pollService.pollExists(any())).thenReturn(true);
+        when(optionService.addPollOption(any(), any())).thenThrow(new InvalidPollUpdateException("Broke AddPoll rule"));
+
+        var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(1L))
+                        .param("description", "C#"))
+                .andExpect(status().isForbidden())
+                .andReturn();
+
+        logResult(result);
+    }
+
+    @Test
+    void shouldBeAbleToRemoveAOptionOfANON_STARTEDPoll() throws Exception {
+
+        PollDTO validPoll = new PollDTO(6L, "What is your age range?",
+                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
+                PollStatus.NOT_STARTED, List.of(
+                new PollOptionDTO(1L, 6L, "0-10", 0),
+                new PollOptionDTO(2L, 6L, "11-20", 0),
+                new PollOptionDTO(3L, 6L, "30-50", 0),
+                new PollOptionDTO(4L, 6L, "40+", 0)));
+
+        var responseList = List.of(
+                new PollOptionDTO(1L, 6L, "0-10", 0),
+                new PollOptionDTO(2L, 6L, "11-20", 0),
+                new PollOptionDTO(3L, 6L, "30-50", 0));
+
+        when(pollService.pollExists(any())).thenReturn(true);
+        when(optionService.removePollOption(any())).thenReturn(responseList);
+
+        String expectedResponse = objectMapper.writeValueAsString(responseList);
+
+        // Should receive the remaining pollOptions
+        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(validPoll.id(), validPoll.options().getLast().id())))
+                .andExpect(status().isOk())
+                .andExpect(content().json(expectedResponse))
+                .andReturn();
+
+        logResult(result);
+    }
+
+    @Test
+    void shouldFailAtOptionRemovalIfPollDoesNotExist() throws Exception {
+        when(pollService.pollExists(any())).thenReturn(false);
+        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(999L, 0L)))
+                .andExpect(status().isNotFound())
+                .andReturn();
+
+        logResult(result);
+    }
+
+    @Test
+    void shouldFailAtOptionRemovalIfTheDeletionIsInvalid() throws Exception {
+        when(pollService.pollExists(any())).thenReturn(true);
+        when(optionService.removePollOption(any())).thenThrow(new InvalidPollUpdateException("Example invalid exception"));
+
+        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(1L, 1L)))
+                .andExpect(status().isForbidden())
+                .andReturn();
+
+        logResult(result);
+    }
+
+    private void logResult(MvcResult result) throws UnsupportedEncodingException, JsonProcessingException {
+        log.info("REQUEST: {}", result.getRequest().getRequestURI());
+        log.info("BODY: {}", result.getRequest().getContentAsString());
+        log.info("PARAMS: {}", objectMapper.writeValueAsString(result.getRequest().getParameterMap()));
+        log.info("CONTENT: {}", result.getResponse().getContentAsString());
+        log.info("STATUS: {}", result.getResponse().getStatus());
+
+    }
+
+}
