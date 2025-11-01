@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: realtime-polls
+  datasource:
+    url: jdbc:postgresql://localhost:5432/polldb
+    username: postgres
+    password: pass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    user: postgres
+    password: pass
