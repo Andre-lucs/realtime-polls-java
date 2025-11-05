@@ -36,18 +36,31 @@ public class Poll {
     @Column(name = "end_date", nullable = false)
     private LocalDateTime endDate;
 
-    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PollStatus status;
 
-    @Size(min = 3)
+    @Size(min = 3, message = "Minimum options count is 3")
     @OneToMany(mappedBy = "poll", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<PollOption> options = new ArrayList<>();
 
     public void addOption(PollOption option){
         option.setPoll(this);
         this.options.add(option);
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void updateStatusBasedOnDates() {
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isBefore(startDate)) {
+            this.status = PollStatus.NOT_STARTED;
+        } else if (now.isAfter(endDate)) {
+            this.status = PollStatus.FINISHED;
+        } else {
+            this.status = PollStatus.STARTED;
+        }
     }
 
 }
