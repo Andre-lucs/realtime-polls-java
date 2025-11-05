@@ -1,12 +1,13 @@
 package com.andrelucs.realtimepolls.polls;
 
 import com.andrelucs.realtimepolls.data.dto.PollDTO;
+import com.andrelucs.realtimepolls.data.dto.PollEditRequestDTO;
 import com.andrelucs.realtimepolls.data.dto.PollRequestDTO;
 import com.andrelucs.realtimepolls.data.model.PollStatus;
-import com.andrelucs.realtimepolls.exceptions.controller.BadRequestException;
 import com.andrelucs.realtimepolls.exceptions.controller.InvalidPollException;
 import com.andrelucs.realtimepolls.exceptions.controller.PollNotFoundException;
 import com.andrelucs.realtimepolls.exceptions.service.*;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,10 +41,10 @@ public class PollController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    PollDTO save(@RequestBody PollRequestDTO poll) throws InvalidPollException {
+    PollDTO save(@RequestBody @Valid PollRequestDTO poll){
         try{
             PollDTO createdPoll = pollService.save(poll);
-            if (createdPoll.id() == null) {
+            if (createdPoll == null || createdPoll.getId() == null) {
                 throw new InvalidPollException("Poll was not created.");
             }
             return createdPoll;
@@ -54,10 +55,10 @@ public class PollController {
     }
 
     @PutMapping("/{poll_id}")
-    PollDTO editPoll(@PathVariable Long poll_id, @RequestBody PollRequestDTO newPollObject) {
+    PollDTO editPoll(@PathVariable Long poll_id, @RequestBody PollEditRequestDTO newPollObject) {
         try{
             PollDTO createdPoll = pollService.editPoll(poll_id, newPollObject);
-            if (createdPoll.id() == null) {
+            if (createdPoll.getId() == null) {
                 throw new InvalidPollException("Poll was not created.");
             }
             return createdPoll;

@@ -117,7 +117,7 @@ public class OptionControllerTest {
         String expectedResponse = objectMapper.writeValueAsString(responseList);
 
         // Should receive the remaining pollOptions
-        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(validPoll.id(), validPoll.options().getLast().id())))
+        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(validPoll.getId(), validPoll.getOptions().getLast().id())))
                 .andExpect(status().isOk())
                 .andExpect(content().json(expectedResponse))
                 .andReturn();

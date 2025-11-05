@@ -1,12 +1,12 @@
 package com.andrelucs.realtimepolls.unittests;
 
+import com.andrelucs.realtimepolls.exceptions.service.InvalidPollCreationException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEditException;
 import com.andrelucs.realtimepolls.polls.PollController;
 import com.andrelucs.realtimepolls.polls.PollService;
 import com.andrelucs.realtimepolls.data.dto.PollDTO;
 import com.andrelucs.realtimepolls.data.dto.PollRequestDTO;
 import com.andrelucs.realtimepolls.data.model.PollStatus;
-import com.andrelucs.realtimepolls.exceptions.service.InvalidPollOpinionsException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -99,7 +99,7 @@ public class PollControllerTest {
 
     @Test
     void shouldFindPollsByStatusIfSpecified() throws Exception {
-        List<PollDTO> finished = polls.stream().filter(p -> p.status() == PollStatus.FINISHED).toList();
+        List<PollDTO> finished = polls.stream().filter(p -> p.getStatus() == PollStatus.FINISHED).toList();
         when(pollService.findByStatus(eq(PollStatus.FINISHED))).thenReturn(finished);
 
         String expectedPolls = objectMapper.writeValueAsString(finished);
@@ -138,8 +138,7 @@ public class PollControllerTest {
 
     @Test
     void shouldNotCreateAInvalidPoll() throws Exception {
-        // This example shows a invalid opinions count
-        when(pollService.save(any())).thenThrow(new InvalidPollOpinionsException(3, 2));
+        // This example shows an invalid opinions count
 
         PollRequestDTO pollRequestDTO = new PollRequestDTO(
                 "Qual a linguagem você prefere para backend?",
@@ -151,10 +150,27 @@ public class PollControllerTest {
         var result = mockMvc.perform(post("/api/poll")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
-                .andExpect(status().isForbidden())
+                .andExpect(status().isBadRequest())
                 .andReturn();
 
         logResult(result);
+        // This example shows an invalid date range
+        when(pollService.save(any())).thenThrow(new InvalidPollCreationException("Invalid dates"));
+
+        PollRequestDTO pollRequestDTO2 = new PollRequestDTO(
+                "Qual a linguagem você prefere para backend?",
+                LocalDateTime.now().plusDays(1),
+                LocalDateTime.now(),
+                List.of("Java", "Go", "C#"));
+
+        String jsonRequest2 = objectMapper.writeValueAsString(pollRequestDTO2);
+        var result2 = mockMvc.perform(post("/api/poll")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonRequest2))
+                .andExpect(status().isForbidden())
+                .andReturn();
+
+        logResult(result2);
     }
 
     @Test
