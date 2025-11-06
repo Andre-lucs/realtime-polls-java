@@ -224,9 +224,6 @@ public class PollControllerTest {
         logResult(result);
     }
 
-    // Options edit
-
-
     private void logResult(MvcResult result) throws UnsupportedEncodingException, JsonProcessingException {
         log.info("REQUEST: {}", result.getRequest().getRequestURI());
         log.info("BODY: {}", result.getRequest().getContentAsString());

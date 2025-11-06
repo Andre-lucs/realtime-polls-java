@@ -24,10 +24,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Slf4j
@@ -55,9 +53,9 @@ public class OptionControllerTest {
 
         when(pollService.pollExists(eq(pollId))).thenReturn(true);
         when(optionService.addPollOption(eq(pollId), any())).thenReturn(List.of(
-                new PollOptionDTO(1L, pollId, "Java", 0),
-                new PollOptionDTO(2L, pollId, "Go", 0),
-                new PollOptionDTO(3L, pollId, "Elixir", 0)
+                new PollOptionDTO(1L, "Java", 0),
+                new PollOptionDTO(2L, "Go", 0),
+                new PollOptionDTO(3L, "Elixir", 0)
         ));
 
         var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(pollId))
@@ -101,25 +99,16 @@ public class OptionControllerTest {
         PollDTO validPoll = new PollDTO(6L, "What is your age range?",
                 LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
                 PollStatus.NOT_STARTED, List.of(
-                new PollOptionDTO(1L, 6L, "0-10", 0),
-                new PollOptionDTO(2L, 6L, "11-20", 0),
-                new PollOptionDTO(3L, 6L, "30-50", 0),
-                new PollOptionDTO(4L, 6L, "40+", 0)));
-
-        var responseList = List.of(
-                new PollOptionDTO(1L, 6L, "0-10", 0),
-                new PollOptionDTO(2L, 6L, "11-20", 0),
-                new PollOptionDTO(3L, 6L, "30-50", 0));
+                new PollOptionDTO(1L, "0-10", 0),
+                new PollOptionDTO(2L, "11-20", 0),
+                new PollOptionDTO(3L, "30-50", 0),
+                new PollOptionDTO(4L, "40+", 0)));
 
         when(pollService.pollExists(any())).thenReturn(true);
-        when(optionService.removePollOption(any())).thenReturn(responseList);
-
-        String expectedResponse = objectMapper.writeValueAsString(responseList);
 
         // Should receive the remaining pollOptions
-        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(validPoll.getId(), validPoll.getOptions().getLast().id())))
+        var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(validPoll.getId(), validPoll.getOptions().getLast().getId())))
                 .andExpect(status().isOk())
-                .andExpect(content().json(expectedResponse))
                 .andReturn();
 
         logResult(result);
@@ -138,7 +127,7 @@ public class OptionControllerTest {
     @Test
     void shouldFailAtOptionRemovalIfTheDeletionIsInvalid() throws Exception {
         when(pollService.pollExists(any())).thenReturn(true);
-        when(optionService.removePollOption(any())).thenThrow(new InvalidPollUpdateException("Example invalid exception"));
+        doThrow(InvalidPollUpdateException.class).when(optionService).removePollOption(any());
 
         var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(1L, 1L)))
                 .andExpect(status().isForbidden())

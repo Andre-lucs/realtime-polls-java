@@ -21,7 +21,7 @@ public class PollOption {
     private String description;
 
     @Column(nullable = false)
-    private Integer votes = 0;
+    private int votes = 0;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "poll_id", nullable = false)

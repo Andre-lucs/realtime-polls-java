@@ -4,10 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,11 +37,15 @@ public class Poll {
     @Column(nullable = false, length = 20)
     private PollStatus status;
 
+    // Lombok exclude to avoid unecessary fetchs
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @Size(min = 3, message = "Minimum options count is 3")
     @OneToMany(mappedBy = "poll", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<PollOption> options = new ArrayList<>();
+    private List<PollOption> options;
 
     public void addOption(PollOption option){
+        if (options == null) options = new ArrayList<>();
         option.setPoll(this);
         this.options.add(option);
     }
@@ -61,6 +62,10 @@ public class Poll {
         } else {
             this.status = PollStatus.STARTED;
         }
+    }
+
+    public String toString(boolean includeOpinios){
+        return toString().concat(options.toString());
     }
 
 }
