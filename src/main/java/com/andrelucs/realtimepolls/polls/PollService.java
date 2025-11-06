@@ -51,10 +51,14 @@ public class PollService{
     }
 
     public Optional<PollDTO> findById(Long pollId) {
+        return findPollEntity(pollId)
+                .map(this::convertToDTO);
+    }
+
+    public Optional<Poll> findPollEntity(Long pollId) {
         // Updating the status to make sure we get the correct status by the time
         repository.recalculateStatusById(pollId);
-        return repository.findById(pollId)
-                .map(this::convertToDTO);
+        return repository.findById(pollId);
     }
 
     public PollDTO save(PollRequestDTO poll) throws InvalidPollCreationException {
@@ -63,8 +67,11 @@ public class PollService{
                 .question(poll.question())
                 .startDate(poll.startDate())
                 .endDate(poll.endDate())
-                .options(poll.options().stream().map(o -> PollOption.builder().description(o).build()).toList())
                 .build();
+
+        for (var option : poll.options()) {
+            pollEntity.addOption(PollOption.builder().description(option).build());
+        }
 
         try {
             validatePollEntity(pollEntity);

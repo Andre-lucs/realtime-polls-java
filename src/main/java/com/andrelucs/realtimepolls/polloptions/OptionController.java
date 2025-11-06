@@ -40,7 +40,7 @@ public class OptionController {
     }
 
     @DeleteMapping("/{option_id}")
-    List<PollOptionDTO> removePollOption(@PathVariable Long poll_id, @PathVariable Long option_id) {
+    void removePollOption(@PathVariable Long poll_id, @PathVariable Long option_id) {
         if (option_id == null) {
             throw new BadRequestException("The Option id cannot be blank.");
         }
@@ -48,7 +48,7 @@ public class OptionController {
             throw new PollNotFoundException("Poll was not found.");
         }
         try{
-            return optionService.removePollOption(option_id);
+            optionService.removePollOption(option_id);
         } catch (InvalidPollUpdateException e){
             throw new FailPollOptionsUpdateException("Failed to update poll options on poll %d. Reason: %s".formatted(poll_id, e.getMessage()));
         }
