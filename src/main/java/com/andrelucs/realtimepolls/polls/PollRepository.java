@@ -22,7 +22,7 @@ public interface PollRepository extends JpaRepository<Poll, Long> {
     END
     WHERE p.id = :id
     """)
-    void recalculateStatusById(@Param("id") Long id);
+    int recalculateStatusById(@Param("id") Long id);
 
     @Modifying
     @Query("""
@@ -32,8 +32,13 @@ public interface PollRepository extends JpaRepository<Poll, Long> {
         WHEN CURRENT_TIMESTAMP >= p.startDate AND CURRENT_TIMESTAMP < p.endDate THEN com.andrelucs.realtimepolls.data.model.PollStatus.STARTED
         ELSE com.andrelucs.realtimepolls.data.model.PollStatus.FINISHED
     END
+    WHERE p.status <> CASE
+        WHEN CURRENT_TIMESTAMP < p.startDate THEN com.andrelucs.realtimepolls.data.model.PollStatus.NOT_STARTED
+        WHEN CURRENT_TIMESTAMP >= p.startDate AND CURRENT_TIMESTAMP < p.endDate THEN com.andrelucs.realtimepolls.data.model.PollStatus.STARTED
+        ELSE com.andrelucs.realtimepolls.data.model.PollStatus.FINISHED
+    END
     """)
-    void recalculateAllStatuses();
+    int recalculateAllStatuses();
 
 
 }
