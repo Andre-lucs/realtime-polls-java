@@ -1,6 +1,7 @@
 package com.andrelucs.realtimepolls.integrationtests;
 
 import com.andrelucs.realtimepolls.data.dto.PollRequestDTO;
+import com.andrelucs.realtimepolls.polls.PollRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,10 @@ public class PollApiIntegrationTest extends AbstractIntegrationTest{
     MockMvc mockMvc;
     @Autowired
     ObjectMapper objectMapper;
+
+    public PollApiIntegrationTest(PollRepository pollRepository) {
+        super(pollRepository);
+    }
 
     @Test
     void shouldCreatePoll() throws Exception {
