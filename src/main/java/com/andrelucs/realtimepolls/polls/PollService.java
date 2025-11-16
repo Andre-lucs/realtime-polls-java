@@ -9,6 +9,7 @@ import com.andrelucs.realtimepolls.data.model.PollStatus;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollCreationException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEditException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEntityException;
+import jakarta.transaction.Transactional;
 import jakarta.validation.*;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -50,11 +51,13 @@ public class PollService{
                 .toList();
     }
 
+    @Transactional
     public Optional<PollDTO> findById(Long pollId) {
         return findPollEntity(pollId)
                 .map(this::convertToDTO);
     }
 
+    @Transactional
     public Optional<Poll> findPollEntity(Long pollId) {
         // Updating the status to make sure we get the correct status by the time
         repository.recalculateStatusById(pollId);
