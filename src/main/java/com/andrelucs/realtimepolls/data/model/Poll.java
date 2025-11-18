@@ -42,12 +42,18 @@ public class Poll {
     @EqualsAndHashCode.Exclude
     @Size(min = 3, message = "Minimum options count is 3")
     @OneToMany(mappedBy = "poll", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<PollOption> options;
+    private List<PollOption> options = new ArrayList<>();
 
     public void addOption(PollOption option){
         if (options == null) options = new ArrayList<>();
         option.setPoll(this);
         this.options.add(option);
+    }
+
+    public void removeOption(PollOption option){
+        if (options != null && options.remove(option)) {
+            option.setPoll(null);
+        }
     }
 
     @PrePersist

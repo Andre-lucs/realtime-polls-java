@@ -58,7 +58,7 @@ public class OptionControllerTest {
                 new PollOptionDTO(3L, "Elixir", 0)
         ));
 
-        var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(pollId))
+        var result = mockMvc.perform(post("/api/poll/%d/options".formatted(pollId))
                         .param("description", "C#"))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -71,7 +71,7 @@ public class OptionControllerTest {
         Long pollId = 99L;
         when(pollService.pollExists(eq(pollId))).thenReturn(false);
 
-        var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(pollId))
+        var result = mockMvc.perform(post("/api/poll/%d/options".formatted(pollId))
                         .param("description", "C#"))
                 .andExpect(status().isNotFound())
                 .andReturn();
@@ -85,7 +85,7 @@ public class OptionControllerTest {
         when(pollService.pollExists(any())).thenReturn(true);
         when(optionService.addPollOption(any(), any())).thenThrow(new InvalidPollUpdateException("Broke AddPoll rule"));
 
-        var result = mockMvc.perform(patch("/api/poll/%d/options".formatted(1L))
+        var result = mockMvc.perform(post("/api/poll/%d/options".formatted(1L))
                         .param("description", "C#"))
                 .andExpect(status().isForbidden())
                 .andReturn();
@@ -108,7 +108,7 @@ public class OptionControllerTest {
 
         // Should receive the remaining pollOptions
         var result = mockMvc.perform(delete("/api/poll/%d/options/%d".formatted(validPoll.getId(), validPoll.getOptions().getLast().getId())))
-                .andExpect(status().isOk())
+                .andExpect(status().isNoContent())
                 .andReturn();
 
         logResult(result);

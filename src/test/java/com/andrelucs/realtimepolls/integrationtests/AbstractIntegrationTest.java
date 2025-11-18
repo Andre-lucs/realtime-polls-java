@@ -3,6 +3,7 @@ package com.andrelucs.realtimepolls.integrationtests;
 import com.andrelucs.realtimepolls.data.model.Poll;
 import com.andrelucs.realtimepolls.data.model.PollOption;
 import com.andrelucs.realtimepolls.polls.PollRepository;
+import jakarta.annotation.PreDestroy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,8 +11,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.lifecycle.Startables;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,11 +23,11 @@ import java.util.List;
 @ActiveProfiles("test-containers")
 public abstract class AbstractIntegrationTest {
 
-    @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:latest")
             .withDatabaseName("polldb")
             .withUsername("postgres")
-            .withPassword("pass");
+            .withPassword("pass")
+            .withReuse(true);
 
     @DynamicPropertySource
     static void configure(DynamicPropertyRegistry registry) {
@@ -36,7 +37,15 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.driver-class-name", postgres::getDriverClassName);
     }
 
-    // Test data setup ---
+    static {
+        Startables.deepStart(postgres).join();
+    }
+
+    @PreDestroy
+    static void close(){
+        postgres.stop();
+        postgres.close();
+    }
 
     final PollRepository pollRepository;
 

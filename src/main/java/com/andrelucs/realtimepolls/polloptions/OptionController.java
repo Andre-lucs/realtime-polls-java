@@ -6,6 +6,7 @@ import com.andrelucs.realtimepolls.exceptions.controller.BadRequestException;
 import com.andrelucs.realtimepolls.exceptions.controller.FailPollOptionsUpdateException;
 import com.andrelucs.realtimepolls.exceptions.controller.PollNotFoundException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollUpdateException;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,7 +23,7 @@ public class OptionController {
         this.pollService = pollService;
     }
 
-    @PatchMapping()
+    @PostMapping()
     List<PollOptionDTO> addPollOption(@PathVariable Long poll_id,
                                       @RequestParam(name = "description") String description){
         if (description.isBlank()) {
@@ -40,6 +41,7 @@ public class OptionController {
     }
 
     @DeleteMapping("/{option_id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     void removePollOption(@PathVariable Long poll_id, @PathVariable Long option_id) {
         if (option_id == null) {
             throw new BadRequestException("The Option id cannot be blank.");

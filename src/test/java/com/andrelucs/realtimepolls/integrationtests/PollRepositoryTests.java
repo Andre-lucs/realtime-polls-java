@@ -4,7 +4,6 @@ import com.andrelucs.realtimepolls.data.model.PollStatus;
 import com.andrelucs.realtimepolls.polls.PollRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +22,6 @@ public class PollRepositoryTests extends AbstractIntegrationTest{
     }
 
     @Test
-    @Transactional
     void shouldFindAllPolls() {
         var result = pollRepository.findAll();
         Assertions.assertEquals(4, result.size());
@@ -31,7 +29,6 @@ public class PollRepositoryTests extends AbstractIntegrationTest{
     }
 
     @Test
-    @Transactional
     void shouldFindPollsByStatus() {
         var startedPolls = pollRepository.findAllByStatus(PollStatus.STARTED);
         Assertions.assertTrue(startedPolls.stream()
