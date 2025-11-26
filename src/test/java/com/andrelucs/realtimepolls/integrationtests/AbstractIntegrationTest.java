@@ -47,7 +47,7 @@ public abstract class AbstractIntegrationTest {
         postgres.close();
     }
 
-    final PollRepository pollRepository;
+    public final PollRepository pollRepository;
 
     public AbstractIntegrationTest(PollRepository pollRepository) {
         this.pollRepository = pollRepository;
@@ -62,7 +62,7 @@ public abstract class AbstractIntegrationTest {
      * Saves a set os default polls to the database
      */
     @BeforeEach
-    void saveTestData(){
+    protected void saveTestData(){
         var polls = List.of(
                 Poll.builder()
                         .question("Qual sua linguagem de programação favorita?")

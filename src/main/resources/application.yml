@@ -5,6 +5,8 @@ spring:
     url: jdbc:postgresql://localhost:5432/polldb
     username: postgres
     password: pass
+    hikari:
+      minimum-idle: 5
   jpa:
     hibernate:
       ddl-auto: validate
@@ -14,3 +16,5 @@ spring:
   flyway:
     user: postgres
     password: pass
+pg-listener:
+  wait-ms: 500

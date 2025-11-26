@@ -46,7 +46,7 @@ public class PollOptionsIntegrationTest extends AbstractIntegrationTest{
 
     @BeforeEach
     @Override
-    void saveTestData() {
+    protected void saveTestData() {
         // Create a fresh poll with 5 options
 
         var poll = Poll.builder()
@@ -111,6 +111,7 @@ public class PollOptionsIntegrationTest extends AbstractIntegrationTest{
         log.info("All polls after delete option : {} ", pollRepository.findAll());
         log.info("Options after delete: {}", optionRepository.findAll());
         Assertions.assertFalse(exists);
+        Assertions.assertTrue(pollRepository.existsById(pollToEdit.getId())); // Should not delete
     }
 
     @Test
