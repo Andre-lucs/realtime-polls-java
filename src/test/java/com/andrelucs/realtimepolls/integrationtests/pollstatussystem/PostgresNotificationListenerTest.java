@@ -41,7 +41,7 @@ class PostgresNotificationListenerTest extends AbstractIntegrationTest {
     }
 
     @AfterEach
-    void ensureListenerIsActive(){
+    void ensureListenerIsActive() throws SQLException {
         listener.clearHandlers();
     }
 
@@ -170,6 +170,19 @@ class PostgresNotificationListenerTest extends AbstractIntegrationTest {
 
         Assertions.assertEquals("A_msg", a.get());
         Assertions.assertEquals("B_msg", b.get());
+    }
+
+    @Test
+    void shouldCheckIfSetChannelIsBeingListenedByAHandler() throws Exception {
+        String channel = "chan_a";
+        AtomicReference<String> a = new AtomicReference<>();
+
+        PostgresNotificationListener.PayloadHandler handler = a::set;
+        listener.listen(channel, handler);
+
+        boolean listened = listener.isListening(channel, handler);
+
+        Assertions.assertTrue(listened);
     }
 
 }

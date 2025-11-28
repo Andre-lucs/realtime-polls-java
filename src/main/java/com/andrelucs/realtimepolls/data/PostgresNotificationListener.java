@@ -40,12 +40,13 @@ public class PostgresNotificationListener {
     private int postgresWaitInterval;
 
     private final Map<String, Set<PayloadHandler>> channelHandlers = new ConcurrentHashMap<>();
+    private final Set<String> listeningChannels = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean isListening = new AtomicBoolean(false);
 
 
     @EventListener(ApplicationReadyEvent.class)
     public void start(){
-        log.info("The postgresWaitInterval is {}", postgresWaitInterval);
+        log.info("Starting postgres notification listener {}, {}" , Thread.currentThread().getName(), this);
         if (isListening.get()){
             stop();
         }
@@ -54,19 +55,27 @@ public class PostgresNotificationListener {
 
     @PreDestroy
     public void stop() {
-        log.info("Stopping Listener");
+        log.info("Stopping Listener {}, {}" , Thread.currentThread().getName(), this);
         isListening.set(false);
+        closeConnection();
+
         if (listenThread != null){
-            try { listenThread.join(postgresWaitInterval); } catch (InterruptedException ignored) {}
-            if(listenThread.isAlive()) listenThread.interrupt();
+            listenThread.interrupt();
+            try { listenThread.join(); } catch (InterruptedException ignored) {}
             listenThread = null;
         }
-
-        closeConnection();
     }
 
-    public void clearHandlers(){
+    public void clearHandlers() throws SQLException {
         channelHandlers.clear();
+        ensureConnection();
+        try (Statement stmt = sqlConnection.createStatement()) {
+            stmt.execute("UNLISTEN *");
+            listeningChannels.clear();
+            log.info("Cleared all LISTEN subscriptions");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void ensureConnection() throws SQLException {
@@ -100,15 +109,19 @@ public class PostgresNotificationListener {
     public synchronized void listen(String channel, PayloadHandler handler) throws SQLException {
         ensureConnection();
 
-        boolean firstHandler = channelHandlers.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet()).isEmpty();
-        channelHandlers.get(channel).add(handler);
+        var handlers = channelHandlers.computeIfAbsent(channel, k -> ConcurrentHashMap.newKeySet());
+        handlers.add(handler);
 
-        if (firstHandler) {
+        boolean shouldListen = listeningChannels.add(channel);
+        if (shouldListen) {
             try (Statement st = sqlConnection.createStatement()) {
                 st.execute("LISTEN " + channel);
+                log.info("LISTEN issued for channel {}", channel);
+            } catch (SQLException e) {
+                // rollback the flag on failure
+                listeningChannels.remove(channel);
             }
         }
-
     }
 
     public synchronized void unlisten(String channel, PayloadHandler handler) throws SQLException {
@@ -117,18 +130,27 @@ public class PostgresNotificationListener {
 
         handlers.remove(handler);
 
-        // Se não tiver mais handlers → remover LISTEN
         if (handlers.isEmpty()) {
-            try (Statement stmt = sqlConnection.createStatement()) {
-                stmt.execute("UNLISTEN " + channel);
+            channelHandlers.remove(channel);
+
+            // only UNLISTEN if we had previously LISTENed
+            if (listeningChannels.remove(channel)) {
+                try (Statement stmt = sqlConnection.createStatement()) {
+                    stmt.execute("UNLISTEN " + channel);
+                    log.info("UNLISTEN issued for channel {}", channel);
+                }
             }
-            log.info("Removed LISTEN from {}", channel);
         }
+    }
+
+    public boolean isListening(String channel, PayloadHandler handler){
+        return listeningChannels.contains(channel) && channelHandlers.containsKey(channel) && channelHandlers.get(channel).contains(handler);
     }
 
     private synchronized void restoreSubs(){
         try (Statement stmt = sqlConnection.createStatement()) {
-            for (String channel : channelHandlers.keySet()) {
+            stmt.execute("UNLISTEN *"); // Ensures not getting remaining connections
+            for (String channel : listeningChannels) {
                 stmt.execute("LISTEN " + channel);
                 log.info("Restored LISTEN for channel: {}", channel);
             }
@@ -141,13 +163,14 @@ public class PostgresNotificationListener {
         log.info("Notification thread initiated.");
         isListening.set(true);
         try {
-            while (isListening.get()) {
+            while (isListening.get() && !Thread.currentThread().isInterrupted()) {
                 //log.info("Looped and waiting");
                 ensureConnection();
 
                 var notifications = pgConnection.getNotifications(postgresWaitInterval);
-
                 if (notifications == null) continue;
+
+                if (Thread.currentThread().isInterrupted()) break;
 
                 for (PGNotification notification : notifications) {
                     String channel = notification.getName();
@@ -155,16 +178,18 @@ public class PostgresNotificationListener {
 
                     var handlers = channelHandlers.get(channel);
                     if (handlers != null) {
-                        log.info("Received notification from: {}", channel);
+                        log.info("Received notification from: {}, payload {} {}", channel, payload, Thread.currentThread());
                         handlers.forEach(h -> h.handle(payload));
                     }
                 }
 
             }
         } catch (Exception e) {
+            closeConnection();
             log.error("Notification listener error: {}", e.getMessage());
+        } finally {
+            isListening.set(false);
         }
-        isListening.set(false);
     }
 
 }
