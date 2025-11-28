@@ -5,16 +5,19 @@ import com.andrelucs.realtimepolls.data.dto.PollDTO;
 import com.andrelucs.realtimepolls.data.dto.PollEditRequestDTO;
 import com.andrelucs.realtimepolls.data.dto.PollRequestDTO;
 import com.andrelucs.realtimepolls.data.model.PollOption;
+import com.andrelucs.realtimepolls.data.model.StatusToUpdate;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollCreationException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEditException;
 import com.andrelucs.realtimepolls.polls.PollRepository;
 import com.andrelucs.realtimepolls.polls.PollService;
 import com.andrelucs.realtimepolls.data.model.Poll;
 import com.andrelucs.realtimepolls.data.model.PollStatus;
+import com.andrelucs.realtimepolls.polls.scheduler.StatusToUpdateRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -33,6 +36,9 @@ import static org.mockito.Mockito.*;
 @ContextConfiguration(classes = {PollService.class, ModelMapperConfiguration.class})
 @Slf4j
 public class PollServiceTest {
+
+    @MockitoBean
+    private StatusToUpdateRepository statusToUpdateRepository;
 
     @MockitoBean
     PollRepository pollRepository;
@@ -321,6 +327,42 @@ public class PollServiceTest {
     }
 
 
+    @Test
+    void testProcessStatusBefore() {
+        // given
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime earlier = now.minusHours(1);
+
+        Poll poll1 = new Poll();
+        poll1.setStatus(PollStatus.NOT_STARTED);
+
+        StatusToUpdate event1 = StatusToUpdate.builder()
+                .poll(poll1)
+                .currentStatus(PollStatus.NOT_STARTED)
+                .nextStatus(PollStatus.STARTED)
+                .scheduledDate(earlier)
+                .build();
+
+        List<StatusToUpdate> events = List.of(event1);
+
+        Mockito.when(statusToUpdateRepository
+                        .findNonProcessedBefore(now))
+                .thenReturn(events);
+
+        // when
+        service.processStatusBefore(now);
+
+        // then
+        // 1. Poll status should have changed
+        assertEquals(event1.getNextStatus(), poll1.getStatus());
+
+        // 2. processedAt must be set to mark the event as processed
+        assertNotNull(event1.getProcessedAt());
+
+        // 3. should call the flush methods on both repositories
+        Mockito.verify(pollRepository).flush();
+        Mockito.verify(statusToUpdateRepository).flush();
+    }
 
 
 }

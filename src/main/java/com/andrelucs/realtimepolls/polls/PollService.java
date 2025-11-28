@@ -6,17 +6,19 @@ import com.andrelucs.realtimepolls.data.dto.PollRequestDTO;
 import com.andrelucs.realtimepolls.data.model.Poll;
 import com.andrelucs.realtimepolls.data.model.PollOption;
 import com.andrelucs.realtimepolls.data.model.PollStatus;
+import com.andrelucs.realtimepolls.data.model.StatusToUpdate;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollCreationException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEditException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEntityException;
+import com.andrelucs.realtimepolls.polls.scheduler.StatusToUpdateRepository;
 import jakarta.transaction.Transactional;
 import jakarta.validation.*;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,15 +28,19 @@ public class PollService{
 
     private static final Logger log = LoggerFactory.getLogger(PollService.class);
     private final PollRepository repository;
+    private final StatusToUpdateRepository statusToUpdateRepository;
     private final ModelMapper modelMapper;
 
     private final Validator validator;
+    private final PollRepository pollRepository;
 
-    public PollService(PollRepository repository, ModelMapper modelMapper) {
+    public PollService(PollRepository repository, StatusToUpdateRepository statusToUpdateRepository, ModelMapper modelMapper, PollRepository pollRepository) {
         this.repository = repository;
+        this.statusToUpdateRepository = statusToUpdateRepository;
         this.modelMapper = modelMapper;
         var validatorFactory = Validation.buildDefaultValidatorFactory();
         this.validator = validatorFactory.getValidator();
+        this.pollRepository = pollRepository;
     }
 
     public List<PollDTO> findAll(){
@@ -125,7 +131,6 @@ public class PollService{
         return convertToDTO(edited);
     }
 
-
     private PollDTO convertToDTO(Poll poll) {
         return modelMapper.map(poll, PollDTO.class);
     }
@@ -134,10 +139,11 @@ public class PollService{
         return modelMapper.map(pollDTO, Poll.class);
     }
 
-    @Scheduled(cron = "0 */10 * * * *")
-    public void recalculateStatuses() {
-        repository.recalculateAllStatuses();
-    }
+    // Changing to use new status update system
+//    @Scheduled(cron = "0 */10 * * * *")
+//    public void recalculateStatuses() {
+//        repository.recalculateAllStatuses();
+//    }
 
     private void validatePollEntity(Poll pollEntity) throws InvalidPollEntityException {
 
@@ -162,4 +168,18 @@ public class PollService{
         throw new InvalidPollEntityException(violationMessage.toString());
     }
 
+    @Transactional
+    public void processStatusBefore(LocalDateTime date) {
+        var statusEvents = statusToUpdateRepository.findNonProcessedBefore(date);
+
+        for (StatusToUpdate statusEvent : statusEvents) {
+            var poll = statusEvent.getPoll();
+
+            poll.setStatus(statusEvent.getNextStatus());
+            statusEvent.setProcessedAt(LocalDateTime.now());
+        }
+
+        pollRepository.flush();
+        statusToUpdateRepository.flush();
+    }
 }
