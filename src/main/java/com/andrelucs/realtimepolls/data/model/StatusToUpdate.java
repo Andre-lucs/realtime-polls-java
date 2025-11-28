@@ -24,16 +24,11 @@ public class StatusToUpdate{
     private PollStatus nextStatus;
     private LocalDateTime scheduledDate;
 
+    private LocalDateTime processedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "poll_id", nullable = false)
     @EqualsAndHashCode.Exclude
     @ToString.Exclude
     private Poll poll;
 }
-//CREATE TABLE status_to_update (
-//  id BIGSERIAL PRIMARY KEY,
-//  poll_id BIGINT NOT NULL REFERENCES poll (id) ON DELETE CASCADE,
-//  current_status VARCHAR(20) NOT NULL,
-//  next_status VARCHAR(20) NOT NULL,
-//  scheduled_date TIMESTAMP NOT NULL
-//);

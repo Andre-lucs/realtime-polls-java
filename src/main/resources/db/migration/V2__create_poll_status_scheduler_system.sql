@@ -6,7 +6,8 @@ CREATE TABLE status_to_update (
   poll_id BIGINT NOT NULL REFERENCES poll (id) ON DELETE CASCADE,
   current_status VARCHAR(20) NOT NULL,
   next_status VARCHAR(20) NOT NULL,
-  scheduled_date TIMESTAMP NOT NULL
+  scheduled_date TIMESTAMP NOT NULL,
+  processed_at TIMESTAMP
 );
 
 ------------------------------------------------------------
@@ -31,14 +32,16 @@ CREATE OR REPLACE FUNCTION create_status_update_event(
     p_date TIMESTAMP
 )
     RETURNS VOID AS $$
+DECLARE
+    v_event_id BIGINT;
 BEGIN
     INSERT INTO status_to_update (poll_id, current_status, next_status, scheduled_date)
-    VALUES (p_id, p_current_status, p_next_status, p_date);
+    VALUES (p_id, p_current_status, p_next_status, p_date)
+    RETURNING id INTO v_event_id;
 
     PERFORM pg_notify(
             'status_to_update_channel',
---             (p_id::text || '|' || to_char(p_date, 'YYYY-MM-DD"T"HH24:MI:SS.MS'))::text
-            (p_id::text || '|' || to_char(p_date, 'YYYY-MM-DD"T"HH24:MI:SS'))::text
+            v_event_id::text || '|' || to_char(p_date, 'YYYY-MM-DD"T"HH24:MI:SS')
             );
 END;
 $$ LANGUAGE plpgsql;

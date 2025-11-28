@@ -15,13 +15,14 @@ public interface StatusToUpdateRepository extends JpaRepository<StatusToUpdate, 
     @Query("""
     select s
     from StatusToUpdate s
+    where s.processedAt is null
     order by s.scheduledDate
     limit :amount
     """)
-    Set<StatusToUpdate> getFirstNonProcessedStatusToUpdate(int amount);
+    Set<StatusToUpdate> findFirstNonProcessedEvents(int amount);
 
-    default Optional<StatusToUpdate> findFirstNonProcessedStatusToUpdate(){
-        return getFirstNonProcessedStatusToUpdate(1).stream().findFirst();
+    default Optional<StatusToUpdate> findFirstNonProcessed(){
+        return findFirstNonProcessedEvents(1).stream().findFirst();
     };
 
     List<StatusToUpdate> findAllByNextStatus(PollStatus status);
