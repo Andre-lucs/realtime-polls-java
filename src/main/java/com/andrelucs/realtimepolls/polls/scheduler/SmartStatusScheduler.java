@@ -6,20 +6,35 @@ import com.andrelucs.realtimepolls.polls.PollService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ScheduledFuture;
 
 @Service
 @Slf4j
 public class SmartStatusScheduler {
 
     private record NewSchedulePayload(long id, LocalDateTime dateTime){
-        static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        static final String dateTimePartern =  "yyyy-MM-dd'T'HH:mm:ss";
+        static DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateTimePartern);
         private NewSchedulePayload(long id, String dateString) {
-            this(id, LocalDateTime.parse(dateString, formatter));
+            this(id, LocalDateTime.parse(trimToPaternLength(dateString), formatter));
+        }
+
+        static private String trimToPaternLength(String dateTimeString){
+            return dateTimeString.trim().substring(0, dateTimePartern.length()-2); // using -2 to not count the ' around the T
+        }
+    }
+
+    private record StatusToUpdateTask(StatusToUpdate statusToUpdate, PollService pollService) implements Runnable {
+        @Override
+        public void run() {
+            pollService.processStatus(statusToUpdate);
         }
     }
 
@@ -29,13 +44,16 @@ public class SmartStatusScheduler {
     private final PostgresNotificationListener.PayloadHandler notificationHandler;
     private final StatusToUpdateRepository statusToUpdateRepository;
     private final PollService pollService;
+    private final TaskScheduler taskScheduler;
 
-    private StatusToUpdate statusToUpdate;
+    private StatusToUpdateTask updateTask;
+    private ScheduledFuture<?> scheduledUpdateTask;
 
-    public SmartStatusScheduler(PostgresNotificationListener notificationListener, StatusToUpdateRepository statusToUpdateRepository, PollService pollService) {
+    public SmartStatusScheduler(PostgresNotificationListener notificationListener, StatusToUpdateRepository statusToUpdateRepository, PollService pollService, TaskScheduler taskScheduler) {
         this.notificationListener = notificationListener;
         this.statusToUpdateRepository = statusToUpdateRepository;
         this.pollService = pollService;
+        this.taskScheduler = taskScheduler;
 
         this.notificationHandler = this::handleNotificationPayload;
     }
@@ -46,28 +64,41 @@ public class SmartStatusScheduler {
 
         var event = new NewSchedulePayload(Long.parseLong(args[0]), args[1]);
 
+        var statusToUpdate = getStatusBeingProcessed();
+
         boolean shouldChange = statusToUpdate == null || event.dateTime.isBefore(statusToUpdate.getScheduledDate());
 
         if (shouldChange){
-            var status = statusToUpdateRepository.findById(event.id())
-                    .orElse(this.statusToUpdate); // If Not found keep the same status
-            processStatus(status);
+            statusToUpdateRepository.findById(event.id()).ifPresent(this::processStatus);
         }
     }
 
     public StatusToUpdate getStatusBeingProcessed(){
-        return this.statusToUpdate;
+        if (updateTask == null) return null;
+        return updateTask.statusToUpdate;
     }
 
-    public void processStatus(StatusToUpdate statusToUpdate){
-        // TODO Implement process Logic
-        log.info("Changed Status being processed from {} to {}", this.statusToUpdate, statusToUpdate );
+    public synchronized void processStatus(StatusToUpdate statusToUpdate){
+        log.info("Changed Status being processed from {} to {}", getStatusBeingProcessed(), statusToUpdate );
+        cancelScheduledTask();
 
-        this.statusToUpdate = statusToUpdate;
+        updateTask = new StatusToUpdateTask(statusToUpdate, pollService);
+
+        scheduledUpdateTask = taskScheduler.schedule(
+                () -> {
+                    updateTask.run();
+                    processMostRecentStatus(); // <- keep processing the next status
+                },
+                statusToUpdate.getScheduledDate().atZone(ZoneId.systemDefault()).toInstant()
+        );
     }
 
-    public synchronized void processStatusToUpdate() {
-        // TODO This will be the scheduled method
+    public void cancelScheduledTask() {
+        if (scheduledUpdateTask != null) {
+            scheduledUpdateTask.cancel(false);
+            scheduledUpdateTask = null;
+        }
+        updateTask = null;
     }
 
     public void processMostRecentStatus(){
@@ -92,10 +123,5 @@ public class SmartStatusScheduler {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public void resetStatusToUpdate(){
-        statusToUpdate = null;
-        // LAter also make the scheduling stop
     }
 }

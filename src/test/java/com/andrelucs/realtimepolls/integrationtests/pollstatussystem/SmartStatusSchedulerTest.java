@@ -40,7 +40,7 @@ public class SmartStatusSchedulerTest extends AbstractIntegrationTest {
     @BeforeEach
     void setupScheduler (){
         smartStatusScheduler.ensureIsListening();
-        smartStatusScheduler.resetStatusToUpdate();
+        smartStatusScheduler.cancelScheduledTask();
     }
 
     @Test
@@ -61,7 +61,7 @@ public class SmartStatusSchedulerTest extends AbstractIntegrationTest {
         pollRepository.save(poll);
 
         // Forçar a lógica de startup novamente (útil para testes)
-        smartStatusScheduler.resetStatusToUpdate();
+        smartStatusScheduler.cancelScheduledTask();
         smartStatusScheduler.processMostRecentStatus();
 
         // Esperar até que o evento antigo tenha sido processado
@@ -94,7 +94,7 @@ public class SmartStatusSchedulerTest extends AbstractIntegrationTest {
 
         pollRepository.save(poll);
 
-        smartStatusScheduler.resetStatusToUpdate();
+        smartStatusScheduler.cancelScheduledTask();
         smartStatusScheduler.processMostRecentStatus();
 
         Awaitility.await()

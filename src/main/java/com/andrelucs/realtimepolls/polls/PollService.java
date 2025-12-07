@@ -182,4 +182,14 @@ public class PollService{
         pollRepository.flush();
         statusToUpdateRepository.flush();
     }
+
+    @Transactional
+    public void processStatus(StatusToUpdate statusToUpdate) {
+        var poll = statusToUpdate.getPoll();
+        poll.setStatus(statusToUpdate.getNextStatus());
+        statusToUpdate.setProcessedAt(LocalDateTime.now());
+
+        pollRepository.flush();
+        statusToUpdateRepository.flush();
+    }
 }
