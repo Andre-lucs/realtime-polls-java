@@ -2,6 +2,7 @@ package com.andrelucs.realtimepolls.integrationtests;
 
 import com.andrelucs.realtimepolls.data.model.Poll;
 import com.andrelucs.realtimepolls.data.model.PollOption;
+import com.andrelucs.realtimepolls.data.model.PollStatus;
 import com.andrelucs.realtimepolls.polloptions.PollOptionRepository;
 import com.andrelucs.realtimepolls.polls.PollRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,5 +140,32 @@ public class PollOptionsIntegrationTest extends AbstractIntegrationTest{
     }
 
 
+    @Test
+    void shouldBeAbleToVoteForAOptionOnAOngoingPoll() throws Exception {
+        super.saveTestData();
+        var poll = pollRepository.findAllByStatus(PollStatus.STARTED).getFirst();
+        var optionToVote = optionRepository.findAllByPollId(poll.getId()).getFirst();
+
+        mockMvc.perform(patch("/api/poll/%d/options/%d".formatted(poll.getId(), optionToVote.getId())));
+
+        PollOption repoPoll = optionRepository.findById(optionToVote.getId()).orElseThrow();
+
+        Assertions.assertEquals(optionToVote.getVotes()+1, repoPoll.getVotes());
+    }
+
+    @Test
+    void shouldFailAtVotingInAFinishedOrStartedPoll() throws Exception {
+        var nonStartedPoll = pollRepository.findAllByStatus(PollStatus.NOT_STARTED).getFirst();
+
+        var optionToVote = optionRepository.findAllByPollId(nonStartedPoll.getId()).getFirst();
+
+        mockMvc.perform(patch("/api/poll/%d/options/%d".formatted(this.poll.getId(), optionToVote.getId())))
+                .andExpect(status().isForbidden());
+
+        PollOption repoPoll = optionRepository.findById(optionToVote.getId()).orElseThrow();
+
+        Assertions.assertEquals(optionToVote.getVotes(), repoPoll.getVotes());
+
+    }
 
 }

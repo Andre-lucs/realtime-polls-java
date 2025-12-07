@@ -2,6 +2,7 @@ package com.andrelucs.realtimepolls.unittests;
 
 import com.andrelucs.realtimepolls.polloptions.OptionController;
 import com.andrelucs.realtimepolls.polloptions.OptionService;
+import com.andrelucs.realtimepolls.polloptions.PollOptionRepository;
 import com.andrelucs.realtimepolls.polls.PollService;
 import com.andrelucs.realtimepolls.data.dto.PollDTO;
 import com.andrelucs.realtimepolls.data.dto.PollOptionDTO;
@@ -10,6 +11,7 @@ import com.andrelucs.realtimepolls.exceptions.service.InvalidPollUpdateException
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,8 @@ public class OptionControllerTest {
     PollService pollService;
     @MockitoBean
     OptionService optionService;
+    @MockitoBean
+    PollOptionRepository optionRepository;
 
     @BeforeEach
     void setUp() {
@@ -134,6 +138,42 @@ public class OptionControllerTest {
                 .andReturn();
 
         logResult(result);
+    }
+
+    @Test
+    void shouldBeAbleToVoteForAOptionFromAOngoingPoll() throws Exception{
+        PollDTO validPoll = new PollDTO(6L, "What is your age range?",
+                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2),
+                PollStatus.NOT_STARTED, List.of(
+                new PollOptionDTO(1L, "0-10", 0),
+                new PollOptionDTO(2L, "11-20", 0),
+                new PollOptionDTO(3L, "30-50", 0),
+                new PollOptionDTO(4L, "40+", 0)));
+
+        PollOptionDTO optionToVote = validPoll.getOptions().get(1);
+
+        when(pollService.pollExists(any())).thenReturn(true);
+        when(optionService.voteForOption(optionToVote.getId())).thenReturn(optionToVote);
+
+        // Should receive the remaining pollOptions
+        var result = mockMvc.perform(patch("/api/poll/%d/options/%d".formatted(validPoll.getId(), validPoll.getOptions().getLast().getId())))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        logResult(result);
+    }
+
+    @Test
+    void shouldFailToVoteInAInvalidOption() throws Exception {
+
+        when(pollService.pollExists(any())).thenReturn(false);
+
+        mockMvc.perform(patch("/api/poll/%d/options/%d".formatted(99L, 222L)))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(patch("/api/poll/%d/options/%d".formatted(99L, null)))
+                .andExpect(status().isBadRequest());
+
     }
 
     private void logResult(MvcResult result) throws UnsupportedEncodingException, JsonProcessingException {
