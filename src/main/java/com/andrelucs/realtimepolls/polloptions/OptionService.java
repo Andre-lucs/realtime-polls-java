@@ -6,12 +6,17 @@ import com.andrelucs.realtimepolls.data.model.PollOption;
 import com.andrelucs.realtimepolls.data.model.PollStatus;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollUpdateException;
 import com.andrelucs.realtimepolls.polls.PollRepository;
+import com.andrelucs.realtimepolls.websocket.data.PollOptionVoteDTO;
+import com.andrelucs.realtimepolls.websocket.events.PollVoteEvent;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -21,11 +26,15 @@ public class OptionService {
     private final PollOptionRepository optionRepository;
     private final PollRepository pollRepository;
     private final ModelMapper modelMapper;
+    private final ApplicationEventPublisher eventPublisher;
+    private final EntityManager entityManager;
 
-    public OptionService(PollOptionRepository optionRepository, PollRepository pollRepository, ModelMapper modelMapper) {
+    public OptionService(PollOptionRepository optionRepository, PollRepository pollRepository, ModelMapper modelMapper, ApplicationEventPublisher eventPublisher, EntityManager entityManager) {
         this.optionRepository = optionRepository;
         this.pollRepository = pollRepository;
         this.modelMapper = modelMapper;
+        this.eventPublisher = eventPublisher;
+        this.entityManager = entityManager;
     }
 
     /**
@@ -105,11 +114,18 @@ public class OptionService {
             throw new InvalidPollUpdateException("Vote could not be registered");
         }
 
-        // recarrega a opção atualizada
-        PollOption updatedOption = optionRepository.findById(optionId)
-                .orElseThrow(() -> new InvalidPollUpdateException("Option not found after update"));
+        entityManager.refresh(option);
 
-        return modelMapper.map(updatedOption, PollOptionDTO.class);
+        eventPublisher.publishEvent(new PollVoteEvent(this,
+                PollOptionVoteDTO.builder()
+                        .pollId(poll.getId())
+                        .optionId(optionId)
+                        .delta(1L)
+                        .timestamp(LocalDateTime.now())
+                        .build()
+        ));
+
+        return modelMapper.map(option, PollOptionDTO.class);
     }
 
 

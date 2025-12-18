@@ -10,6 +10,7 @@ import com.andrelucs.realtimepolls.exceptions.service.InvalidPollUpdateException
 import com.andrelucs.realtimepolls.polloptions.OptionService;
 import com.andrelucs.realtimepolls.polloptions.PollOptionRepository;
 import com.andrelucs.realtimepolls.polls.PollRepository;
+import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,9 @@ class PollOptionServiceTest {
 
     @MockitoBean
     PollRepository pollRepository;
+
+    @MockitoBean
+    EntityManager entityManager;
 
     @Autowired
     OptionService optionService;

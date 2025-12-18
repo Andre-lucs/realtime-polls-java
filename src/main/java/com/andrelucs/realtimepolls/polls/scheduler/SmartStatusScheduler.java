@@ -49,11 +49,11 @@ public class SmartStatusScheduler {
     private StatusToUpdateTask updateTask;
     private ScheduledFuture<?> scheduledUpdateTask;
 
-    public SmartStatusScheduler(PostgresNotificationListener notificationListener, StatusToUpdateRepository statusToUpdateRepository, PollService pollService, TaskScheduler taskScheduler) {
+    public SmartStatusScheduler(PostgresNotificationListener notificationListener, StatusToUpdateRepository statusToUpdateRepository, PollService pollService, TaskScheduler threadPollTaskScheduler) {
         this.notificationListener = notificationListener;
         this.statusToUpdateRepository = statusToUpdateRepository;
         this.pollService = pollService;
-        this.taskScheduler = taskScheduler;
+        this.taskScheduler = threadPollTaskScheduler;
 
         this.notificationHandler = this::handleNotificationPayload;
     }
