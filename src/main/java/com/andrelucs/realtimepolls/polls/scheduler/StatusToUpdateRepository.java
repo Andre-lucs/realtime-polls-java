@@ -39,4 +39,12 @@ public interface StatusToUpdateRepository extends JpaRepository<StatusToUpdate, 
     """)
     List<StatusToUpdate> findNonProcessedBefore(LocalDateTime scheduledDate);
 
+    @Query("""
+    select s
+    from StatusToUpdate s
+    join fetch s.poll
+    where s.id = :id
+    """)
+    Optional<StatusToUpdate> findByIdWithPoll(Long id);
+
 }

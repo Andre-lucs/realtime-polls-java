@@ -11,11 +11,14 @@ import com.andrelucs.realtimepolls.exceptions.service.InvalidPollCreationExcepti
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEditException;
 import com.andrelucs.realtimepolls.exceptions.service.InvalidPollEntityException;
 import com.andrelucs.realtimepolls.polls.scheduler.StatusToUpdateRepository;
+import com.andrelucs.realtimepolls.websocket.data.PollStatusUpdateDTO;
+import com.andrelucs.realtimepolls.websocket.events.PollStatusEvent;
 import jakarta.transaction.Transactional;
 import jakarta.validation.*;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,14 +33,17 @@ public class PollService{
     private final PollRepository repository;
     private final StatusToUpdateRepository statusToUpdateRepository;
     private final ModelMapper modelMapper;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     private final Validator validator;
     private final PollRepository pollRepository;
 
-    public PollService(PollRepository repository, StatusToUpdateRepository statusToUpdateRepository, ModelMapper modelMapper, PollRepository pollRepository) {
+    public PollService(PollRepository repository, StatusToUpdateRepository statusToUpdateRepository, ModelMapper modelMapper, ApplicationEventPublisher eventPublisher, PollRepository pollRepository) {
         this.repository = repository;
         this.statusToUpdateRepository = statusToUpdateRepository;
         this.modelMapper = modelMapper;
+        this.eventPublisher = eventPublisher;
         var validatorFactory = Validation.buildDefaultValidatorFactory();
         this.validator = validatorFactory.getValidator();
         this.pollRepository = pollRepository;
@@ -184,12 +190,21 @@ public class PollService{
     }
 
     @Transactional
-    public void processStatus(StatusToUpdate statusToUpdate) {
+    public void processStatus(Long statusToUpdateId) {
+        var statusToUpdate = statusToUpdateRepository.findByIdWithPoll(statusToUpdateId).orElseThrow();
         var poll = statusToUpdate.getPoll();
         poll.setStatus(statusToUpdate.getNextStatus());
         statusToUpdate.setProcessedAt(LocalDateTime.now());
 
         pollRepository.flush();
         statusToUpdateRepository.flush();
+
+        var event = new PollStatusEvent(this, PollStatusUpdateDTO.builder()
+                .pollId(statusToUpdate.getPoll().getId())
+                .timestamp(LocalDateTime.now())
+                .fromStatus(statusToUpdate.getCurrentStatus())
+                .toStatus(statusToUpdate.getNextStatus())
+                .build());
+        eventPublisher.publishEvent(event);
     }
 }

@@ -34,7 +34,7 @@ public class SmartStatusScheduler {
     private record StatusToUpdateTask(StatusToUpdate statusToUpdate, PollService pollService) implements Runnable {
         @Override
         public void run() {
-            pollService.processStatus(statusToUpdate);
+            pollService.processStatus(statusToUpdate.getId());
         }
     }
 

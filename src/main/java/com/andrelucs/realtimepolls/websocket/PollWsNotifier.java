@@ -2,6 +2,7 @@ package com.andrelucs.realtimepolls.websocket;
 
 import com.andrelucs.realtimepolls.polloptions.PollOptionRepository;
 import com.andrelucs.realtimepolls.websocket.data.PollOptionVoteDTO;
+import com.andrelucs.realtimepolls.websocket.events.PollStatusEvent;
 import com.andrelucs.realtimepolls.websocket.events.PollVoteEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,4 +40,12 @@ public class PollWsNotifier {
     }
 
     // /topic/poll.{pollId}.status
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onPollStatusEvent(PollStatusEvent statusEvent){
+
+        var payload = statusEvent.getData();
+        String topicUrl = "/topic/poll.%d.status".formatted(payload.getPollId());
+        template.convertAndSend(topicUrl, payload);
+    }
+
 }

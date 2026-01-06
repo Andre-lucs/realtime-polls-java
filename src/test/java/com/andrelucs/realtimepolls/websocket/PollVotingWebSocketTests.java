@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Slf4j
-public class PollWebSocketIntegrationTests extends AbstractIntegrationTest {
+public class PollVotingWebSocketTests extends AbstractIntegrationTest {
     private WebSocketStompClient stompClient;
     private StompSession stompSession;
     private final OptionService optionService;
@@ -40,7 +40,7 @@ public class PollWebSocketIntegrationTests extends AbstractIntegrationTest {
     private int port;
 
     @Autowired
-    public PollWebSocketIntegrationTests(PollRepository pollRepository, OptionService optionService) {
+    public PollVotingWebSocketTests(PollRepository pollRepository, OptionService optionService) {
         super(pollRepository);
         this.optionService = optionService;
     }

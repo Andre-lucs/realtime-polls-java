@@ -142,6 +142,6 @@ public class SmartStatusSchedulerUnitTest {
 
         task.run();
 
-        verify(pollService).processStatus(status);
+        verify(pollService).processStatus(status.getId());
     }
 }
